@@ -1,14 +1,20 @@
-// Lắng nghe sự kiện push
 self.addEventListener('push', function(event) {
-    const data = event.data ? event.data.text() : 'Bạn có thông báo mới!';
+    let data = 'Bạn có thông báo mới!';
+    if (event.data) {
+        try {
+            const json = event.data.json();
+            data = json.message || data;
+        } catch (e) {
+            data = event.data.text();
+        }
+    }
 
     const options = {
         body: data,
-        icon: '/static/icons/icon-192.png',  
+        icon: '/static/icons/icon-192.png',
         badge: '/static/icons/icon-192.png',
-        data: {
-            url: '/'
-        }
+        data: { url: '/' },
+        requireInteraction: true
     };
 
     event.waitUntil(
@@ -16,22 +22,16 @@ self.addEventListener('push', function(event) {
     );
 });
 
-// Lắng nghe sự kiện click notification
 self.addEventListener('notificationclick', function(event) {
     event.notification.close();
-
-    const url = event.notification.data.url || '/';
+    const url = event.notification.data?.url || '/';
 
     event.waitUntil(
-        clients.matchAll({ type: 'window' }).then(windowClients => {
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
             for (let client of windowClients) {
-                if (client.url === url && 'focus' in client) {
-                    return client.focus();
-                }
+                if (client.url === url && 'focus' in client) return client.focus();
             }
-            if (clients.openWindow) {
-                return clients.openWindow(url);
-            }
+            if (clients.openWindow) return clients.openWindow(url);
         })
     );
 });
