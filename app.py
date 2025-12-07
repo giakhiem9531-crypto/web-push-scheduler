@@ -79,7 +79,7 @@ def subscribe():
 
 @app.route('/send', methods=['POST'])
 def send_all_push():
-    message = request.json.get("message", "Bạn có thông báo mới!")
+    message = "Bạn có thông báo mới!"  # Default
     for device_id, sub in subscriptions.items():
         try:
             send_web_push(sub, message)
