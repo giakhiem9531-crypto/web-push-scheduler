@@ -23,11 +23,12 @@ VAPID_PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=OPENAI_KEY)
 
+# =================== Web Push ===================
 def send_web_push(subscription_info, message):
     try:
         webpush(
             subscription_info=subscription_info,
-            data=json.dumps({"message": message}),  # Gửi JSON chuẩn
+            data=json.dumps({"message": message}),
             vapid_private_key=VAPID_PRIVATE_KEY,
             vapid_claims={"sub": "mailto:your_email@example.com"}
         )
@@ -35,7 +36,7 @@ def send_web_push(subscription_info, message):
     except WebPushException as ex:
         print(f"[ERROR] Gửi thất bại: {ex}")
         if ex.response and ex.response.status_code == 410:
-            # Subscription hết hạn, xóa device
+            # Subscription hết hạn
             device_ids_to_remove = [k for k, v in subscriptions.items() if v == subscription_info]
             for k in device_ids_to_remove:
                 subscriptions.pop(k, None)
@@ -49,15 +50,15 @@ def job_send(message, time_key, device_id):
             last_sent[time_key] = now
             print("Đã gửi đến device:", device_id)
 
-
 # Scheduler chạy nền
-##def run_scheduler():
-  ##  while True:
-    ##    schedule.run_pending()
-      ##  time.sleep(1)
+def run_scheduler():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
-##threading.Thread(target=run_scheduler, daemon=True).start()
+threading.Thread(target=run_scheduler, daemon=True).start()
 
+# =================== Routes ===================
 @app.route('/')
 def index():
     return render_template('index1.html', vapid_key=VAPID_PUBLIC_KEY)
@@ -79,15 +80,11 @@ def subscribe():
 
 @app.route('/send', methods=['POST'])
 def send_all_push():
-    message = "Bạn có thông báo mới!"  # Default
+    message = request.json.get("message", "Bạn có thông báo mới!")
     for device_id, sub in subscriptions.items():
-        try:
-            send_web_push(sub, message)
-            print(f"Đã gửi tới device: {device_id}")
-        except Exception as e:
-            print(f"Lỗi khi gửi tới {device_id}: {e}")
+        send_web_push(sub, message)
+        print(f"Đã gửi tới device: {device_id}")
     return jsonify({"status": "sent", "devices": list(subscriptions.keys())})
-
 
 @app.route('/add', methods=['POST'])
 def add_schedule():

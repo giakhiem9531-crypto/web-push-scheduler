@@ -14,6 +14,7 @@
 <button id="enablePush">Bật thông báo</button>
 
 <script>
+// Chuyển Base64URL → Uint8Array
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -27,23 +28,23 @@ document.getElementById("enablePush").addEventListener("click", async () => {
         return;
     }
 
+    const swReg = await navigator.serviceWorker.register('/service-worker.js');
+    await navigator.serviceWorker.ready;
+
+    let deviceId = localStorage.getItem("device_id");
+    if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem("device_id", deviceId);
+    }
+
+    const vapidKey = "{{ vapid_key | safe }}";
+    const convertedKey = urlBase64ToUint8Array(vapidKey);
+
     try {
-        const swReg = await navigator.serviceWorker.register('/service-worker.js');
-
-        let subscription = await swReg.pushManager.getSubscription();
-        if (!subscription) {
-            const vapidKey = "{{ vapid_key | safe }}";
-            subscription = await swReg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapidKey)
-            });
-        }
-
-        let deviceId = localStorage.getItem("device_id");
-        if (!deviceId) {
-            deviceId = crypto.randomUUID();
-            localStorage.setItem("device_id", deviceId);
-        }
+        const subscription = await swReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey
+        });
 
         await fetch('/subscribe', {
             method: 'POST',
@@ -61,31 +62,18 @@ document.getElementById("enablePush").addEventListener("click", async () => {
 async function addSchedule() {
     const hour = document.getElementById('hour').value;
     const minute = document.getElementById('minute').value;
-    const message = document.getElementById('message').value.trim();
-
-    if(hour === "" || minute === "" || message === "") {
-        alert("Vui lòng điền đầy đủ thông tin!");
-        return;
-    }
+    const message = document.getElementById('message').value;
 
     const deviceId = localStorage.getItem("device_id");
-    if(!deviceId) {
-        alert("Bạn cần bật thông báo trước khi đặt lịch!");
-        return;
-    }
 
-    try {
-        const res = await fetch('/add', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({hour, minute, message, device_id: deviceId})
-        });
-        const data = await res.json();
-        alert(`Đã đặt lịch lúc ${hour}:${minute}`);
-    } catch(e) {
-        console.error(e);
-        alert("Đặt lịch thất bại. Thử lại sau.");
-    }
+    const res = await fetch('/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({hour, minute, message, device_id: deviceId})
+    });
+
+    const data = await res.json();
+    alert(`Đã đặt lịch lúc ${data.time} với nội dung: ${data.message}`);
 }
 </script>
 </body>
