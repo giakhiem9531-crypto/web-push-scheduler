@@ -49,13 +49,14 @@ def job_send(message, time_key, device_id):
             last_sent[time_key] = now
             print("Đã gửi đến device:", device_id)
 
-# Scheduler chạy nền
-def run_scheduler():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
 
-threading.Thread(target=run_scheduler, daemon=True).start()
+# Scheduler chạy nền
+##def run_scheduler():
+  ##  while True:
+    ##    schedule.run_pending()
+      ##  time.sleep(1)
+
+##threading.Thread(target=run_scheduler, daemon=True).start()
 
 @app.route('/')
 def index():
@@ -75,6 +76,18 @@ def subscribe():
     subscriptions[device_id] = subscription
     print("Đăng ký thành công cho device:", device_id)
     return jsonify({"status": "success"})
+
+@app.route('/send', methods=['POST'])
+def send_all_push():
+    message = request.json.get("message", "Bạn có thông báo mới!")
+    for device_id, sub in subscriptions.items():
+        try:
+            send_web_push(sub, message)
+            print(f"Đã gửi tới device: {device_id}")
+        except Exception as e:
+            print(f"Lỗi khi gửi tới {device_id}: {e}")
+    return jsonify({"status": "sent", "devices": list(subscriptions.keys())})
+
 
 @app.route('/add', methods=['POST'])
 def add_schedule():
