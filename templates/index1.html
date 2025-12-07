@@ -81,7 +81,7 @@ async function addSchedule() {
             body: JSON.stringify({hour, minute, message, device_id: deviceId})
         });
         const data = await res.json();
-        alert(`Đã đặt lịch lúc ${hour}:${minute} với nội dung: "${data.message}"`);
+        alert(`Đã đặt lịch lúc ${hour}:${minute}`);
     } catch(e) {
         console.error(e);
         alert("Đặt lịch thất bại. Thử lại sau.");
