@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Web Push Scheduler</title>
+</head>
+<body>
+<h1>LỜI NHẮC DỊU DÀNG</h1>
+
+<label>Thời gian: <input type="number" id="hour" min="0" max="23"></label>
+<label>Phút: <input type="number" id="minute" min="0" max="59"></label>
+<br><br>
+<label>Nội dung: <input type="text" id="message"></label>
+<button onclick="addSchedule()">Thêm lịch 🙂</button>
+<button id="enablePush">Bật thông báo</button>
+
+<script>
+// Chuyển Base64URL → Uint8Array
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+document.getElementById("enablePush").addEventListener("click", async () => {
+    if (!('serviceWorker' in navigator)) {
+        alert("Trình duyệt không hỗ trợ Service Worker!");
+        return;
+    }
+
+    // Đăng ký Service Worker
+    const swReg = await navigator.serviceWorker.register('/service-worker.js');
+    await navigator.serviceWorker.ready;
+
+    // Tạo device_id nếu chưa có
+    let deviceId = localStorage.getItem("device_id");
+    if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem("device_id", deviceId);
+    }
+
+    // Đăng ký push
+    const vapidKey = "{{ vapid_key | safe }}";
+    const convertedKey = urlBase64ToUint8Array(vapidKey);
+
+    try {
+        const subscription = await swReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey
+        });
+
+        // Gửi subscription + device_id lên server
+        await fetch('/subscribe', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({subscription, device_id: deviceId})
+        });
+
+        alert("Thông báo đã được bật thành công!");
+    } catch (err) {
+        console.error("Push đăng ký thất bại:", err);
+        alert("Push đăng ký thất bại: " + err);
+    }
+});
+
+async function addSchedule() {
+    const hour = document.getElementById('hour').value;
+    const minute = document.getElementById('minute').value;
+    const message = document.getElementById('message').value;
+
+    // Lấy device_id
+    const deviceId = localStorage.getItem("device_id");
+
+    await fetch('/add', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({hour, minute, message, device_id: deviceId})
+    });
+
+    alert(`Đã đặt lịch lúc ${hour}:${minute}`);
+}
+</script>
+</body>
+</html>

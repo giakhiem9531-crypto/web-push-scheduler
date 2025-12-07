@@ -1,0 +1,6 @@
+Flask
+schedule
+pywebpush
+python-dotenv
+openai
+gunicorn
