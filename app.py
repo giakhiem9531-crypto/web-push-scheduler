@@ -119,6 +119,10 @@ def add_schedule():
     schedule.every().day.at(time_str).do(job_send, answer, time_key, device_id)
 
     return jsonify({"status": "scheduled", "time": time_str, "message": answer})
-
+@app.route('/send-test')
+def send_test():
+    for sub in subscriptions.values():
+        send_web_push(sub, "Test message")
+    return "Sent"
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
