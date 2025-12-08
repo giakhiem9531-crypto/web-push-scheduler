@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify
 import schedule
-import threading
 import time
 from pywebpush import webpush, WebPushException
 from dotenv import load_dotenv
@@ -50,14 +49,6 @@ def job_send(message, time_key, device_id):
             last_sent[time_key] = now
             print("Đã gửi đến device:", device_id)
 
-# Scheduler chạy nền
-def run_scheduler():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-
-threading.Thread(target=run_scheduler, daemon=True).start()
-
 # =================== Routes ===================
 @app.route('/')
 def index():
@@ -86,12 +77,18 @@ def send_all_push():
         print(f"Đã gửi tới device: {device_id}")
     return jsonify({"status": "sent", "devices": list(subscriptions.keys())})
 
+# --- Cron endpoint để chạy schedule ---
+@app.route('/cron')
+def cron():
+    schedule.run_pending()
+    return "cron ok"
+
 @app.route('/add', methods=['POST'])
 def add_schedule():
     data = request.json
     hour = int(data['hour'])
     minute = int(data['minute'])
-    message = data['message'][:1000]  # Giới hạn nội dung
+    message = data['message'][:1000]
     device_id = data.get("device_id")
     if not device_id:
         return jsonify({"error": "device_id missing"}), 400
@@ -99,7 +96,7 @@ def add_schedule():
     time_str = f"{hour:02d}:{minute:02d}"
     time_key = f"{time_str}-{device_id}"
 
-    # Gọi OpenAI tạo nội dung
+    # OpenAI
     try:
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
@@ -119,10 +116,12 @@ def add_schedule():
     schedule.every().day.at(time_str).do(job_send, answer, time_key, device_id)
 
     return jsonify({"status": "scheduled", "time": time_str, "message": answer})
+
 @app.route('/send-test')
 def send_test():
     for sub in subscriptions.values():
         send_web_push(sub, "Test message")
     return "Sent"
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
